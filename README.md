@@ -1,7 +1,10 @@
-# ci-cd-pipeline
+# CryptoCore
 
-DataOps
+This pipeline processes cryptocurrency and subreddit data.
 
-This pipeline processes data's cryptocurrency.
+In progress...
+
+:) 
+XD
 
 ![schema](graphic-schema-image.png)
