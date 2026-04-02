@@ -2,12 +2,12 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# Copia os arquivos de requisitos primeiro (otimiza o cache do Docker)
-COPY requirements.txt .
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-RUN pip install --no-cache-dir -r requirements.txt
+COPY pyproject.toml uv.lock ./
 
-# Copia o restante do código do projeto
+RUN uv sync --no-dev --frozen
+
 COPY . .
 
-CMD ["python", "main.py"]
+CMD ["uv", "run", "main.py"]
