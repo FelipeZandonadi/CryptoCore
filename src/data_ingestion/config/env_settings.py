@@ -93,8 +93,8 @@ class AWSConfig():
     @property
     def env(self) -> dict[str, str]:
         return {
-            'AWS_ACCESS_KEY_ID': self.access_key_id,
-            'AWS_SECRET_ACCESS_KEY': self.secret_access_key,
-            'AWS_DEFAULT_REGION': self.default_region,
-            'S3_BUCKET_NAME': self.bucket_name,
+            'access_key_id': self.access_key_id,
+            'secret_access_key': self.secret_access_key,
+            'default_region': self.default_region,
+            's3_bucket_name': self.s3_bucket_name,
         }

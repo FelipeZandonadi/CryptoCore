@@ -8,19 +8,17 @@ logger = get_logger(__name__)
 
 logger.critical('Hello World, making new module...')
 
-def upload_json_to_s3(data: dict, bucket: str) -> bool:
+def upload_json_to_s3(data: dict, bucket: str, s3_key: str) -> bool:
     '''
     Uploads a dictionary as a JSON object directly to an S3 bucket.
 
     Args:
         data (dict): The dictionary to upload.
         bucket (str): The name of your S3 bucket.
+        before (str): The fullname of the previous batch.
         s3_key (str): The path/filename inside the bucket (e.g., 'raw/reddit/data.json').
     '''
-    # Inicializa o cliente S3
     s3_client = boto3.client('s3')
-    datestr = datetime.now().strftime('%Y-%m-%d')
-    s3_key = f'raw/{datestr}/reddit_batch_{datetime.now().timestamp()}.json'
 
     try:
         json_data = json.dumps(data, ensure_ascii=False).encode('utf-8')
