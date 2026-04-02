@@ -1,7 +1,7 @@
-from src.data_ingestion.config.settings import RedditConfig, PostgresConfig
-from src.data_ingestion.utils.logger import get_logger
-from src.data_ingestion.extract.api_extract import RedditExtractor
-from src.data_ingestion.load.data_load import save_json, upload_json_to_s3
+from data_ingestion.config.env_settings import RedditConfig
+from data_ingestion.utils.logger import get_logger
+from data_ingestion.extract.api_extract import RedditExtractor
+from data_ingestion.load.data_load import save_json, upload_json_to_s3
 
 logger = get_logger(__name__)
 
