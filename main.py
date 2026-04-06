@@ -1,9 +1,4 @@
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent / "src"))
-
-from runner import runner
+from data_ingestion.runner import runner
 
 if __name__ == "__main__":
     runner()
