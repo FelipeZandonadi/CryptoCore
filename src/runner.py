@@ -71,7 +71,7 @@ def reddit_threads_extractor(
     )
 
 
-def get_latest_file_name(bucket_name: str, subreddit: str):
+def get_lastest_file_name(bucket_name: str, subreddit: str):
     s3_client = boto3.client("s3")
 
     paginator = s3_client.get_paginator("list_objects_v2")
@@ -134,7 +134,7 @@ def runner():
         logger.info(f"Starting data extraction for subreddit: {subreddit}")
         bucket_name = configs["aws"]["s3_bucket_name"]
 
-        last_obj_fullname = get_latest_file_name(
+        last_obj_fullname = get_lastest_file_name(
             bucket_name=bucket_name, subreddit=subreddit
         )
 
