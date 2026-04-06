@@ -1,6 +1,6 @@
 import json
 import boto3
-from src.data_ingestion.utils.logger import get_logger
+from data_ingestion.utils.logger import get_logger
 from datetime import datetime
 from botocore.exceptions import ClientError
 

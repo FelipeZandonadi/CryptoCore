@@ -2,7 +2,10 @@ from data_ingestion.config.env_settings import AWSConfig, RedditConfig
 from data_ingestion.utils.logger import get_logger
 from data_ingestion.extract.api_extract import RedditExtractor
 from data_ingestion.load.data_load import save_json, upload_json_to_s3
+import boto3
+from botocore.exceptions import ClientError
 from datetime import datetime
+import re
 import sys
 
 logger = get_logger(__name__)
@@ -16,11 +19,79 @@ def config_env() -> dict[str, dict[str, str]]:
         'aws': aws_config.env,
     }
 
+
+def reddit_threads_extractor(
+        extractor: RedditExtractor,
+        bucket: str,
+        subreddit: str,
+        fullname: str = None,
+    ) -> None:
+
+    result: list[dict] = extractor.batch(
+        subreddit=subreddit,
+        fullname=fullname,
+        limit=24,
+    )
+
+    # Se possui próxima thread em direção ao futuro, after é o tail
+    # Se possui thread anterior em direção ao passado, before é o head
+    if not result:
+        logger.warning('No data fetched from Reddit API.')
+        return
+
+    head: str = result[0].get('data', {}).get('children', [{}])[0].get('data', {}).get('name', '')
+    tail: str = result[-1].get('data', {}).get('children', [{}])[-1].get('data', {}).get('name', '')
+    datestr = datetime.now().strftime('%Y-%m-%d')
+
+    s3_key = f'raw/reddit/{subreddit}/{datestr}/h-{head}-t-{tail}-tm-{datetime.now().timestamp()}.json'
+
+    logger.info(f'Previous batch fullname: {head}')
+    logger.info(f'Next batch fullname: {tail}')
+
+    upload_json_to_s3(
+        data=result, 
+        bucket=bucket,
+        s3_key=s3_key,
+    )
+
+
+def get_latest_file_s3(bucket_name:str, subreddit: str):
+    s3_client = boto3.client('s3')
+    
+    paginator = s3_client.get_paginator('list_objects_v2')
+
+    try:
+        paginas = paginator.paginate(Bucket=bucket_name, Prefix=f'raw/reddit/{subreddit}/')
+        
+
+        bucket_vazio = True
+        obj_mais_recente = None
+
+        for pagina in paginas:
+            if 'Contents' in pagina:
+                bucket_vazio = False
+
+                objects = sorted(pagina['Contents'], key=lambda x: x['LastModified'], reverse=True)
+                if obj_mais_recente is None:
+                    obj_mais_recente = objects[0]
+                else: 
+                    if objects[0]['LastModified'] > obj_mais_recente['LastModified']:
+                        obj_mais_recente = objects[0]
+        
+        if bucket_vazio:
+            return None
+        else:
+            return obj_mais_recente.get('Key')
+
+    except ClientError as e:
+        logger.error(f"Error accessing the bucket: {e.response['Error']['Message']}")
+
+
 def runner():
     configs = config_env()
     logger.info('Configurations loaded successfully.')
 
-    test: RedditExtractor = RedditExtractor(
+    extractor: RedditExtractor = RedditExtractor(
         client_id=configs['reddit']['client_id'],
         client_secret=configs['reddit']['client_secret'],
         username=configs['reddit']['username'],
@@ -39,52 +110,19 @@ def runner():
         'BitcoinBeginners',
         'CryptoTechnology',
     ]
-    
-    if len(sys.argv) > 1:
-        result: list[dict] = test.batch(
-            subreddit=subreddits[0],
-            fullname=sys.argv[1],
-            limit=10,
-        )
-    
 
-    # Se possui próxima thread em direção ao futuro, after é o tail
-    # Se possui thread anterior em direção ao passado, before é o head
-        # print(result)
-    if not result:
-        logger.warning('No data fetched from Reddit API.')
-        return
+    for subreddit in subreddits:
+        logger.info(f'Starting data extraction for subreddit: {subreddit}')
+        bucket_name = configs['aws']['s3_bucket_name']
 
-    head: str = result[0].get('data', {}).get('children', [{}])[0].get('data', {}).get('name', '')
-    tail: str = result[-1].get('data', {}).get('children', [{}])[-1].get('data', {}).get('name', '')
-    datestr = datetime.now().strftime('%Y-%m-%d')
+        last_obj_fullname = get_latest_file_s3(bucket_name=bucket_name, subreddit=subreddit)
+        matchs = re.search(r"h-([^-]+)-t-([^-]+)-", last_obj_fullname)
+        if matchs:
+            logger.info(f'Last batch found for subreddit {subreddit}: head={matchs.group(1)}, tail={matchs.group(2)}')
+            head = matchs.group(1)
 
-    s3_key = f'raw/reddit/{subreddits[0]}/{datestr}/h-{head}-t-{tail}-tm-{datetime.now().timestamp()}.json'
-
-    logger.info(f'Previous batch fullname: {head}')
-    logger.info(f'Next batch fullname: {tail}')
-
-    upload_json_to_s3(
-        data=result, 
-        bucket=configs['aws']['s3_bucket_name'],
-        s3_key=s3_key,
-    )
-    
-    # result: list[dict] = test.bootstrap(
-    #     subreddit=subreddits[0],
-    #     limit=25,
-    # )
-    # upload_json_to_s3(result, 'cryptocore-data')
-
-    # logger.debug('TESTE')
-    # data = test.sync_next_batch(
-    #     subreddit=subreddits[0],
-    #     fullname='t3_1qwihpf',
-    #     limit=25,
-    # )
-
-    # upload_json_to_s3(data, 'cryptocore-data')
-
+        reddit_threads_extractor(extractor, bucket_name, subreddit, fullname=head)
+        logger.info(f'Finished data extraction for subreddit: {subreddit}')
 
 if __name__ == '__main__':
     runner()

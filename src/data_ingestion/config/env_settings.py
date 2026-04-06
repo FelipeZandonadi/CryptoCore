@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from src.data_ingestion.utils.logger import get_logger
+from data_ingestion.utils.logger import get_logger
 from typing import Final
 
 load_dotenv()
