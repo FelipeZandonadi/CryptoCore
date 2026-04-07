@@ -65,7 +65,7 @@ class RedditExtractor:
                 raise Exception("Failed to obtain access token from Reddit API.")
 
             token = response.json().get("access_token")
-            
+
             if token is None:
                 logger.error(f"Access token not found in response: {response.text}")
                 raise Exception("Access token not found in Reddit API response.")
@@ -158,7 +158,9 @@ class RedditExtractor:
                 response = requests.get(url, headers=self.headers, params=params)
             except requests.RequestException as e:
                 logger.error(f"Error fetching threads from subreddit {subreddit}: {e}")
-                raise Exception(f"Error fetching threads from subreddit {subreddit}: {e}")
+                raise Exception(
+                    f"Error fetching threads from subreddit {subreddit}: {e}"
+                )
 
             if response.status_code == 200:
                 aux = response.json()
