@@ -6,6 +6,72 @@ from data_ingestion.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
+class RedditAuth:
+    """
+    A class to handle Reddit API authentication using OAuth2.
+
+    Attributes:
+        client_id (str): The client ID for Reddit API.
+        client_secret (str): The client secret for Reddit API.
+        username (str): The Reddit username.
+        password (str): The Reddit password.
+        user_agent (str): The application name
+    """
+
+    def __init__(
+        self,
+        client_id: str,
+        client_secret: str,
+        username: str,
+        password: str,
+        user_agent: str,
+    ):
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.username = username
+        self.password = password
+        self.user_agent = user_agent
+
+    def access_token(self) -> str:
+        """
+        Build access token for Reddit API using OAuth2.
+
+        Returns:
+            str: The access token.
+        """
+        auth: HTTPBasicAuth = HTTPBasicAuth(self.client_id, self.client_secret)
+        data: dict[str, str] = {
+            "grant_type": "password",
+            "username": self.username,
+            "password": self.password,
+        }
+
+        try:
+            response = requests.post(
+                "https://www.reddit.com/api/v1/access_token",
+                auth=auth,
+                data=data,
+                headers={"User-Agent": self.user_agent},
+            )
+        except requests.RequestException as e:
+            logger.error(f"Error obtaining access token: {e}")
+            raise Exception(f"Error obtaining access token: {e}")
+        
+        token = response.json().get("access_token")
+
+        if response.status_code != 200:
+            logger.error(f"Failed to obtain access token {response.status_code}: {response.text}")
+            raise Exception(f"[{response.status_code}] Failed to obtain access token from Reddit API.")
+        if token is None:
+            logger.error(f"Access token not found in response: {response.text}")
+            raise Exception("Access token not found in Reddit API response.")
+
+        logger.info(
+            f"Access token obtained successfully. Expires in {timedelta(seconds=response.json().get('expires_in', 0))}."
+        )
+        return token
+
+
 class RedditExtractor:
     """
     A class to extract data raw (the format is json) from Subreddit using the requests library.
@@ -19,102 +85,24 @@ class RedditExtractor:
     """
 
     base_url: str
-    client_id: str
-    client_secret: str
-    username: str
-    password: str
+    token: str
     user_agent: str
     headers: dict[str, str]
 
     def __init__(
         self,
-        client_id: str,
-        client_secret: str,
-        username: str,
-        password: str,
+        token: str,
         user_agent: str,
     ):
         self.base_url = "https://oauth.reddit.com"
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.username = username
-        self.password = password
+        self.token = token
         self.user_agent = user_agent
 
-        def access_token() -> str:
-            """
-            Build access token for Reddit API using OAuth2.
-
-            Returns:
-                str: The access token.
-            """
-            auth: HTTPBasicAuth = HTTPBasicAuth(self.client_id, self.client_secret)
-            data: dict[str, str] = {
-                "grant_type": "password",
-                "username": self.username,
-                "password": self.password,
-            }
-            response = requests.post(
-                "https://www.reddit.com/api/v1/access_token",
-                auth=auth,
-                data=data,
-                headers={"User-Agent": user_agent},
-            )
-            if response.status_code != 200:
-                logger.error(f"Failed to obtain access token: {response.text}")
-                raise Exception("Failed to obtain access token from Reddit API.")
-
-            token = response.json().get("access_token")
-
-            if token is None:
-                logger.error(f"Access token not found in response: {response.text}")
-                raise Exception("Access token not found in Reddit API response.")
-
-            logger.info(
-                f"Access token obtained successfully. Expires in {timedelta(seconds=response.json().get('expires_in', 0))}."
-            )
-            return token
-
-        token = access_token()
-
         self.headers = {
-            "Authorization": f"bearer {token}",
+            "Authorization": f"bearer {self.token}",
             "User-Agent": self.user_agent,
         }
         logger.info(f"RedditExtractor initialized")
-
-    def bootstrap(self, subreddit: str, limit: int = 25) -> list[dict]:
-        """
-        Executes the primary data ingestion for a targeted subreddit.
-
-        This method initializes the data pipeline by fetching the most recent
-        threads ('new') from the Reddit API. It serves as the baseline load,
-        establishing the initial state without using pagination cursors.
-
-        Args:
-            subreddit (str): The name of the subreddit to ingest (e.g., 'dataengineering').
-            limit (int, optional): The maximum number of threads to retrieve (max is 100)
-                in this initial batch. Defaults to 25.
-
-        Returns:
-            list[dict]: A list containing the JSON response payload.
-
-        Note:
-            To perform subsequent incremental loads, the 'data.before' fullname
-            from this response must be captured and persisted.
-        """
-
-        thread_endpoint = f"/r/{subreddit}/new"
-        url = f"{self.base_url}{thread_endpoint}"
-        params = {"limit": limit}
-        response = requests.get(url, headers=self.headers, params=params)
-
-        if response.status_code == 200:
-            logger.info(f"Fetched threads successfully from subreddit: {subreddit}")
-            return [response.json()]
-        else:
-            logger.error(f"Failed to fetch threads from subreddit: {subreddit}")
-            return [{"error": response.status_code, "message": response.text}]
 
     def batch(
         self,

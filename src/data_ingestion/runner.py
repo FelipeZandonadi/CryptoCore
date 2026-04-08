@@ -1,6 +1,6 @@
 from data_ingestion.config.env_settings import AWSConfig, RedditConfig
 from data_ingestion.utils.logger import get_logger
-from data_ingestion.extract.api_extract import RedditExtractor
+from data_ingestion.extract.reddit import RedditExtractor
 from data_ingestion.load.data_load import save_json, upload_json_to_s3
 import boto3
 from botocore.exceptions import ClientError
