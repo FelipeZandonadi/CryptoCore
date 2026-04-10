@@ -6,6 +6,9 @@ import boto3
 from botocore.exceptions import ClientError
 from datetime import datetime
 import re
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = get_logger(__name__)
 
@@ -132,7 +135,7 @@ def runner():
 
     for subreddit in subreddits:
         logger.info(f"Starting data extraction for subreddit: {subreddit}")
-        bucket_name = configs["aws"]["s3_bucket_name"]
+        bucket_name = configs["aws"]["bucket_name"]
 
         last_obj_fullname = get_lastest_file_name(
             bucket_name=bucket_name, subreddit=subreddit
