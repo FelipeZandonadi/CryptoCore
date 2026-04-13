@@ -149,46 +149,29 @@ class RedditExtractor:
 
         result: list = []
         before: str = fullname
-        params = {
-            "limit": limit,
-            "before": before,
-        }
 
         while before is not None:
-            logger.debug(f"before: {before}")
-            thread_endpoint = f"/r/{subreddit}/new"
-            url = f"{self.base_url}{thread_endpoint}"
-
             try:
-                response = requests.get(url, headers=self.headers, params=params)
-            except requests.RequestException as e:
-                logger.error(f"Error fetching threads from subreddit {subreddit}: {e}")
-                raise Exception(
-                    f"Error fetching threads from subreddit {subreddit}: {e}"
+                response = self.fetch_thread_before(subreddit=subreddit, fullname=before, limit=limit)
+            except Exception as e:
+                logger.error(f"Error occurred while fetching threads from subreddit: {subreddit}")
+                raise e
+
+            if len(response.get("data", {}).get("children", [])) == 0:
+                before = None
+            else:
+                logger.info(
+                    f"Fetched threads successfully from subreddit: {subreddit}"
                 )
 
-            if response.status_code == 200:
-                aux = response.json()
+                before = (
+                    response.get("data", {})
+                    .get("children", [{}])[0]
+                    .get("data", {})
+                    .get("name", "")
+                )
 
-                if len(aux.get("data", {}).get("children", [])) == 0:
-                    before = None
-                else:
-                    logger.info(
-                        f"Fetched threads successfully from subreddit: {subreddit}"
-                    )
-
-                    before = (
-                        aux.get("data", {})
-                        .get("children", [{}])[0]
-                        .get("data", {})
-                        .get("name", "")
-                    )
-                    params["before"] = before
-
-                    result.insert(0, aux)
-            else:
-                logger.error(f"Failed to fetch threads from subreddit: {subreddit}")
-                return [{"error": response.status_code, "message": response.text}]
+                result.insert(0, response)
 
         return result
 
