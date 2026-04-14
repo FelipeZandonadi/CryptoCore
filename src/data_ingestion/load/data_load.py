@@ -1,7 +1,6 @@
 import json
 import boto3
 from data_ingestion.utils.logger import get_logger
-from datetime import datetime
 from botocore.exceptions import ClientError
 
 logger = get_logger(__name__)

@@ -56,12 +56,16 @@ class RedditAuth:
         except requests.RequestException as e:
             logger.error(f"Error obtaining access token: {e}")
             raise Exception(f"Error obtaining access token: {e}")
-        
+
         token = response.json().get("access_token")
 
         if response.status_code != 200:
-            logger.error(f"Failed to obtain access token {response.status_code}: {response.text}")
-            raise Exception(f"[{response.status_code}] Failed to obtain access token from Reddit API.")
+            logger.error(
+                f"Failed to obtain access token {response.status_code}: {response.text}"
+            )
+            raise Exception(
+                f"[{response.status_code}] Failed to obtain access token from Reddit API."
+            )
         if token is None:
             logger.error(f"Access token not found in response: {response.text}")
             raise Exception("Access token not found in Reddit API response.")
@@ -102,16 +106,18 @@ class RedditExtractor:
             "Authorization": f"bearer {self.token}",
             "User-Agent": self.user_agent,
         }
-        logger.info(f"RedditExtractor initialized")
+        logger.info("RedditExtractor initialized")
 
-    def fetch_thread_before(self, subreddit: str, fullname: str, limit: int = 25) -> dict:
+    def fetch_thread_before(
+        self, subreddit: str, fullname: str, limit: int = 25
+    ) -> dict:
         thread_endpoint = f"/r/{subreddit}/new"
         url = f"{self.base_url}{thread_endpoint}"
         params = {
             "limit": limit,
             "before": fullname,
-            }
-        
+        }
+
         response = requests.get(url, headers=self.headers, params=params)
 
         if response.status_code == 200:
@@ -119,7 +125,9 @@ class RedditExtractor:
             return response.json()
         else:
             logger.error(f"Failed to fetch thread from subreddit: {subreddit}")
-            raise Exception(f"[{response.status_code}] Failed to fetch thread from subreddit: {subreddit}")
+            raise Exception(
+                f"[{response.status_code}] Failed to fetch thread from subreddit: {subreddit}"
+            )
 
     def batch(
         self,
@@ -152,17 +160,19 @@ class RedditExtractor:
 
         while before is not None:
             try:
-                response = self.fetch_thread_before(subreddit=subreddit, fullname=before, limit=limit)
+                response = self.fetch_thread_before(
+                    subreddit=subreddit, fullname=before, limit=limit
+                )
             except Exception as e:
-                logger.error(f"Error occurred while fetching threads from subreddit: {subreddit}")
+                logger.error(
+                    f"Error occurred while fetching threads from subreddit: {subreddit}"
+                )
                 raise e
 
             if len(response.get("data", {}).get("children", [])) == 0:
                 before = None
             else:
-                logger.info(
-                    f"Fetched threads successfully from subreddit: {subreddit}"
-                )
+                logger.info(f"Fetched threads successfully from subreddit: {subreddit}")
 
                 before = (
                     response.get("data", {})
@@ -176,5 +186,5 @@ class RedditExtractor:
         return result
 
     def fetch_comments(self, subreddit) -> None:
-        comments_endpoint = f"#"
+        comments_endpoint = "#"
         pass

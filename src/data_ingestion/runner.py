@@ -1,7 +1,7 @@
 from data_ingestion.config.env_settings import AWSConfig, RedditConfig
 from data_ingestion.utils.logger import get_logger
 from data_ingestion.extract.reddit import RedditExtractor, RedditAuth
-from data_ingestion.load.data_load import save_json, upload_json_to_s3
+from data_ingestion.load.data_load import upload_json_to_s3
 import boto3
 from botocore.exceptions import ClientError
 from datetime import datetime
@@ -30,7 +30,9 @@ def reddit_threads_extractor(
     fullname: str = None,
 ) -> None:
     if fullname is None:
-        logger.warning("No fullname provided for subreddit: {subreddit}. Fetching the most recent threads.")
+        logger.warning(
+            "No fullname provided for subreddit: {subreddit}. Fetching the most recent threads."
+        )
         fullname = ""
 
     result: list[dict] = extractor.batch(
@@ -66,7 +68,7 @@ def reddit_threads_extractor(
 
     datestr = datetime.now().strftime("%Y-%m-%d")
 
-    s3_key = f"raw_hml/reddit/{subreddit}/{datestr}/h-{head}-t-{tail}-tm-{datetime.now().timestamp()}.json"
+    s3_key = f"raw/reddit/{subreddit}/{datestr}/h-{head}-t-{tail}-tm-{datetime.now().timestamp()}.json"
 
     logger.info(f"Previous batch fullname: {head}")
     logger.info(f"Next batch fullname: {tail}")
@@ -85,7 +87,7 @@ def get_lastest_file_name(bucket_name: str, subreddit: str):
 
     try:
         paginas = paginator.paginate(
-            Bucket=bucket_name, Prefix=f"raw_hml/reddit/{subreddit}/"
+            Bucket=bucket_name, Prefix=f"raw/reddit/{subreddit}/"
         )
 
         bucket_vazio = True
