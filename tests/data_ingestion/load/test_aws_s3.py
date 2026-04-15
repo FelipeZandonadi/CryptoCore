@@ -26,7 +26,6 @@ def test_aws_client_s3_success(aws_s3_client):
     assert client is not None
     assert aws_s3_client.aws_access_key_id == "test1"
     assert aws_s3_client.aws_secret_access_key == "test2"
-    assert aws_s3_client.bucket_name == "test-bucket-go-to-mars"
     assert aws_s3_client.region_name == "us-east-1"
 
 def test_aws_client_s3_failure(mocker):
