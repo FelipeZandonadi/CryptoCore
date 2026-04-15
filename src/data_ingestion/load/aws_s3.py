@@ -65,23 +65,31 @@ class AWSServiceS3:
 
     def latest_key(self, prefix: str) -> str | None:
         try:
-            response = self.client.list_objects_v2(
+            paginator = self.client.get_paginator("list_objects_v2")
+            pages = paginator.paginate(
                 Bucket=self.bucket_name,
                 Prefix=prefix,
             )
+
+            latest_object = None
+            for page in pages:
+                contents = page.get("Contents", [])
+                if contents:
+                    page_latest = max(
+                        contents,
+                        key=lambda item: (item["LastModified"], item["Key"]),
+                    )
+                    if (
+                        latest_object is None
+                        or page_latest["LastModified"] > latest_object["LastModified"]
+                    ):
+                        latest_object = page_latest
+
+            return latest_object["Key"] if latest_object else None
+
         except Exception as e:
             logger.error(f"Failed to list objects in S3: {e}")
             raise Exception(f"Failed to list objects in S3: {e}")
-
-        contents = response.get("Contents", [])
-        if not contents:
-            return None
-
-        latest_object = max(
-            contents,
-            key=lambda item: (item["LastModified"], item["Key"]),
-        )
-        return latest_object["Key"]
 
 
 def upload_json_to_s3(data: dict, bucket: str, s3_key: str) -> bool:
