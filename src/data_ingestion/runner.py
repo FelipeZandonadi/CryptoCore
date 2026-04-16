@@ -10,9 +10,9 @@ logger = get_logger(__name__)
 
 
 def runner():
-    clock = {"init": pc(), "end": 0}
+    clock = {'init': pc(), 'end': 0}
 
-    logger.info("CryptoCore ingestion data_ingestion start")
+    logger.info('CryptoCore ingestion data_ingestion start')
 
     # ========
     # get envs
@@ -27,30 +27,30 @@ def runner():
     # instance extractor
     # ===================
     token: str = RedditAuth(
-        client_id=red_env["client_id"],
-        client_secret=red_env["client_secret"],
-        username=red_env["username"],
-        password=red_env["password_account"],
-        user_agent=red_env["user_agent"],
+        client_id=red_env['client_id'],
+        client_secret=red_env['client_secret'],
+        username=red_env['username'],
+        password=red_env['password_account'],
+        user_agent=red_env['user_agent'],
     ).access_token()
 
     red_extractor: RedditExtractor = RedditExtractor(
         token=token,
-        user_agent=red_env["user_agent"],
+        user_agent=red_env['user_agent'],
     )
 
     # ======================
     # instance aws s3 loader
     # ======================
     aws_client: AWSClientS3 = AWSClientS3(
-        aws_access_key_id=aws_env["access_key_id"],
-        aws_secret_access_key=aws_env["secret_access_key"],
-        region_name=aws_env["default_region"],
+        aws_access_key_id=aws_env['access_key_id'],
+        aws_secret_access_key=aws_env['secret_access_key'],
+        region_name=aws_env['default_region'],
     )
 
     aws_service: AWSClientS3 = AWSServiceS3(
         client=aws_client.client,
-        bucket_name=aws_env["bucket_name"],
+        bucket_name=aws_env['bucket_name'],
     )
 
     # =================
@@ -64,22 +64,22 @@ def runner():
     # pipeline
     # ========
     subreddits: list[str] = [
-        "CryptoCurrency",
-        "Bitcoin",
-        "Ethereum",
-        "ethtrader",
-        "dogecoin",
-        "CryptoMoonshots",
-        "btc",
-        "BitcoinBeginners",
-        "CryptoTechnology",
+        'CryptoCurrency',
+        'Bitcoin',
+        'Ethereum',
+        'ethtrader',
+        'dogecoin',
+        'CryptoMoonshots',
+        'btc',
+        'BitcoinBeginners',
+        'CryptoTechnology',
     ]
 
     for subreddit in subreddits:
         red_ingestor.ingest_subreddit(subreddit=subreddit)
 
-    clock["end"] = pc()
+    clock['end'] = pc()
 
     logger.info(
-        f"CryptoCore data_ingestion finished in {(clock.get('end') - clock.get('init')):.2f} seconds"
+        f'CryptoCore data_ingestion finished in {(clock.get("end") - clock.get("init")):.2f} seconds'
     )

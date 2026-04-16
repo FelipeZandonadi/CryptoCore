@@ -24,3 +24,6 @@ where = ["src"]
 dev = [
     "moto>=5.1.22",
 ]
+
+[tool.ruff.format]
+quote-style = "single"
