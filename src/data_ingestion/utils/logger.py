@@ -6,13 +6,13 @@ from pathlib import Path
 from typing import Optional
 
 
-DEFAULT_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+DEFAULT_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
 
 def get_logger(
     name: str = __name__,
     level: int = logging.INFO,
-    log_file: Optional[str] = "logs/app.log",
+    log_file: Optional[str] = 'logs/app.log',
     max_bytes: int = 10 * 1024 * 1024,
     backup_count: int = 5,
     fmt: str = DEFAULT_FORMAT,
@@ -58,7 +58,7 @@ def get_logger(
             filename=str(log_path),
             maxBytes=max_bytes,
             backupCount=backup_count,
-            encoding="utf-8",
+            encoding='utf-8',
         )
         fh.setLevel(level)
         fh.setFormatter(formatter)

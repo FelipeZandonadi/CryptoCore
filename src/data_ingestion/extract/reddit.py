@@ -41,37 +41,37 @@ class RedditAuth:
         """
         auth: HTTPBasicAuth = HTTPBasicAuth(self.client_id, self.client_secret)
         data: dict[str, str] = {
-            "grant_type": "password",
-            "username": self.username,
-            "password": self.password,
+            'grant_type': 'password',
+            'username': self.username,
+            'password': self.password,
         }
 
         try:
             response = requests.post(
-                "https://www.reddit.com/api/v1/access_token",
+                'https://www.reddit.com/api/v1/access_token',
                 auth=auth,
                 data=data,
-                headers={"User-Agent": self.user_agent},
+                headers={'User-Agent': self.user_agent},
             )
         except requests.RequestException as e:
-            logger.error(f"Error obtaining access token: {e}")
-            raise Exception(f"Error obtaining access token: {e}")
+            logger.error(f'Error obtaining access token: {e}')
+            raise Exception(f'Error obtaining access token: {e}')
 
-        token = response.json().get("access_token")
+        token = response.json().get('access_token')
 
         if response.status_code != 200:
             logger.error(
-                f"Failed to obtain access token {response.status_code}: {response.text}"
+                f'Failed to obtain access token {response.status_code}: {response.text}'
             )
             raise Exception(
-                f"[{response.status_code}] Failed to obtain access token from Reddit API."
+                f'[{response.status_code}] Failed to obtain access token from Reddit API.'
             )
         if token is None:
-            logger.error(f"Access token not found in response: {response.text}")
-            raise Exception("Access token not found in Reddit API response.")
+            logger.error(f'Access token not found in response: {response.text}')
+            raise Exception('Access token not found in Reddit API response.')
 
         logger.info(
-            f"Access token obtained successfully. Expires in {timedelta(seconds=response.json().get('expires_in', 0))}."
+            f'Access token obtained successfully. Expires in {timedelta(seconds=response.json().get("expires_in", 0))}.'
         )
         return token
 
@@ -98,35 +98,34 @@ class RedditExtractor:
         token: str,
         user_agent: str,
     ):
-        self.base_url = "https://oauth.reddit.com"
+        self.base_url = 'https://oauth.reddit.com'
         self.token = token
         self.user_agent = user_agent
 
         self.headers = {
-            "Authorization": f"bearer {self.token}",
-            "User-Agent": self.user_agent,
+            'Authorization': f'bearer {self.token}',
+            'User-Agent': self.user_agent,
         }
-        logger.info("RedditExtractor initialized")
+        logger.info('RedditExtractor initialized')
 
     def fetch_thread_before(
         self, subreddit: str, fullname: str, limit: int = 25
     ) -> dict:
-        thread_endpoint = f"/r/{subreddit}/new"
-        url = f"{self.base_url}{thread_endpoint}"
+        thread_endpoint = f'/r/{subreddit}/new'
+        url = f'{self.base_url}{thread_endpoint}'
         params = {
-            "limit": limit,
-            "before": fullname,
+            'limit': limit,
+            'before': fullname,
         }
 
         response = requests.get(url, headers=self.headers, params=params)
 
         if response.status_code == 200:
-            logger.info(f"Fetched thread successfully from subreddit: {subreddit}")
             return response.json()
         else:
-            logger.error(f"Failed to fetch thread from subreddit: {subreddit}")
+            logger.error(f'Failed to fetch thread from subreddit: {subreddit}')
             raise Exception(
-                f"[{response.status_code}] Failed to fetch thread from subreddit: {subreddit}"
+                f'[{response.status_code}] Failed to fetch thread from subreddit: {subreddit}'
             )
 
     def batch(
@@ -165,20 +164,20 @@ class RedditExtractor:
                 )
             except Exception as e:
                 logger.error(
-                    f"Error occurred while fetching threads from subreddit: {subreddit}"
+                    f'Error occurred while fetching threads from subreddit: {subreddit}'
                 )
                 raise e
 
-            if len(response.get("data", {}).get("children", [])) == 0:
+            if len(response.get('data', {}).get('children', [])) == 0:
                 before = None
             else:
-                logger.info(f"Fetched threads successfully from subreddit: {subreddit}")
+                logger.info(f'Fetched threads successfully from subreddit: {subreddit}')
 
                 before = (
-                    response.get("data", {})
-                    .get("children", [{}])[0]
-                    .get("data", {})
-                    .get("name", "")
+                    response.get('data', {})
+                    .get('children', [{}])[0]
+                    .get('data', {})
+                    .get('name', '')
                 )
 
                 result.insert(0, response)
@@ -186,5 +185,5 @@ class RedditExtractor:
         return result
 
     def fetch_comments(self, subreddit) -> None:
-        comments_endpoint = "#"
+        comments_endpoint = '#'
         pass

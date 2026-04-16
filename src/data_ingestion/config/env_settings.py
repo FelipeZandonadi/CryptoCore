@@ -12,15 +12,15 @@ class RedditConfig(BaseSettings):
     username: str
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        env_prefix="REDDIT_",
-        extra="ignore",
+        env_file='.env',
+        env_file_encoding='utf-8',
+        env_prefix='REDDIT_',
+        extra='ignore',
     )
 
     @property
     def env(self) -> dict[str, str]:
-        logger.info("Reddit configuration loaded successfully.")
+        logger.info('Reddit configuration loaded successfully.')
         return self.model_dump()
 
 
@@ -31,13 +31,13 @@ class AWSConfig(BaseSettings):
     bucket_name: str
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        env_prefix="AWS_",
-        extra="ignore",
+        env_file='.env',
+        env_file_encoding='utf-8',
+        env_prefix='AWS_',
+        extra='ignore',
     )
 
     @property
     def env(self) -> dict[str, str]:
-        logger.info("AWS configuration loaded successfully.")
+        logger.info('AWS configuration loaded successfully.')
         return self.model_dump()
