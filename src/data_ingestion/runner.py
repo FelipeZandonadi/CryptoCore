@@ -1,5 +1,5 @@
 from data_ingestion.utils.logger import get_logger
-from data_ingestion.config.env_settings import AWSConfig, RedditConfig
+from data_ingestion.config.env_settings import AppConfig, AWSConfig, RedditConfig
 from data_ingestion.extract.reddit import RedditExtractor, RedditAuth
 from data_ingestion.load.aws_s3 import AWSClientS3, AWSServiceS3
 from data_ingestion.ingestors.reddit import RedditIngestor
@@ -14,55 +14,45 @@ def runner():
 
     logger.info('CryptoCore ingestion data_ingestion start')
 
-    # ========
-    # get envs
-    # ========
-    reddit_config: RedditConfig = RedditConfig()
-    aws_config: AWSConfig = AWSConfig()
+    # 1. Config
+    app_config = AppConfig()
+    reddit_config = RedditConfig()
+    aws_config = AWSConfig()
 
-    red_env: dict[str, str] = reddit_config.env
-    aws_env: dict[str, str] = aws_config.env
-
-    # ===================
-    # instance extractor
-    # ===================
+    # 2. Auth
     token: str = RedditAuth(
-        client_id=red_env['client_id'],
-        client_secret=red_env['client_secret'],
-        username=red_env['username'],
-        password=red_env['password_account'],
-        user_agent=red_env['user_agent'],
+        client_id=reddit_config.client_id,
+        client_secret=reddit_config.client_secret,
+        username=reddit_config.username,
+        password=reddit_config.password_account,
+        user_agent=reddit_config.user_agent,
     ).access_token()
 
+    # 3. Extractor
     red_extractor: RedditExtractor = RedditExtractor(
         token=token,
-        user_agent=red_env['user_agent'],
+        user_agent=reddit_config.user_agent,
     )
 
-    # ======================
-    # instance aws s3 loader
-    # ======================
+    # 4. Storage
     aws_client: AWSClientS3 = AWSClientS3(
-        aws_access_key_id=aws_env['access_key_id'],
-        aws_secret_access_key=aws_env['secret_access_key'],
-        region_name=aws_env['default_region'],
+        aws_access_key_id=aws_config.access_key_id,
+        aws_secret_access_key=aws_config.secret_access_key,
+        region_name=aws_config.default_region,
     )
 
-    aws_service: AWSClientS3 = AWSServiceS3(
+    aws_service: AWSServiceS3 = AWSServiceS3(
         client=aws_client.client,
-        bucket_name=aws_env['bucket_name'],
+        bucket_name=aws_config.bucket_name,
     )
 
-    # =================
-    # instance ingestor
-    # =================
+    # 5. Ingestor
     red_ingestor: RedditIngestor = RedditIngestor(
-        extractor=red_extractor, storage=aws_service
+        extractor=red_extractor,
+        storage=aws_service,
     )
 
-    # ========
-    # pipeline
-    # ========
+    # 6. Run
     subreddits: list[str] = [
         'CryptoCurrency',
         'Bitcoin',
@@ -75,8 +65,7 @@ def runner():
         'CryptoTechnology',
     ]
 
-    for subreddit in subreddits:
-        red_ingestor.ingest_subreddit(subreddit=subreddit)
+    red_ingestor.run(subreddits)
 
     clock['end'] = pc()
 

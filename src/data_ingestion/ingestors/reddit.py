@@ -21,7 +21,7 @@ class RedditIngestor:
         """
         Retrieves the last processed 'head' fullname from the latest S3 object key.
         """
-        prefix = f'raw_hml/reddit/{subreddit}/'
+        prefix = f'raw/reddit/{subreddit}/'
         latest_key = self.storage.latest_key(prefix=prefix)
 
         if not latest_key:
@@ -76,7 +76,8 @@ class RedditIngestor:
         timestamp = datetime.now().timestamp()
 
         s3_key = (
-            f'raw_hml/reddit/{subreddit}/{datestr}/h-{head}-t-{tail}-tm-{timestamp}.json'
+            f'raw/reddit/{subreddit}/{datestr}/'
+            f'h-{head}-t-{tail}-tm-{timestamp}.json'
         )
 
         self.storage.upload(s3_key=s3_key, data=result)
