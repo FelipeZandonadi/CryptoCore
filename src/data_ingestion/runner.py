@@ -1,5 +1,5 @@
 from data_ingestion.utils.logger import get_logger
-from data_ingestion.config.env_settings import AppConfig, AWSConfig, RedditConfig
+from data_ingestion.config.env_settings import AWSConfig, RedditConfig
 from data_ingestion.extract.reddit import RedditExtractor, RedditAuth
 from data_ingestion.load.aws_s3 import AWSClientS3, AWSServiceS3
 from data_ingestion.ingestors.reddit import RedditIngestor
@@ -15,7 +15,6 @@ def runner():
     logger.info('CryptoCore ingestion data_ingestion start')
 
     # 1. Config
-    app_config = AppConfig()
     reddit_config = RedditConfig()
     aws_config = AWSConfig()
 
