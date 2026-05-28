@@ -15,7 +15,11 @@ def mock_storage():
 
 @pytest.fixture
 def ingestor(mock_extractor, mock_storage):
-    return RedditIngestor(extractor=mock_extractor, storage=mock_storage)
+    return RedditIngestor(
+        extractor=mock_extractor,
+        storage=mock_storage,
+        subreddits=['Bitcoin', 'Ethereum'],
+    )
 
 
 # ============================================
@@ -58,7 +62,9 @@ def test_ingest_subreddit_success(ingestor, mock_extractor, mock_storage):
     # Setup
     subreddit = 'Bitcoin'
     last_checkpoint = 't3_old'
-    mock_storage.latest_key.return_value = f'raw/reddit/{subreddit}/2026-04-15/h-{last_checkpoint}-t-t3_tail-tm-123.json'
+    mock_storage.latest_key.return_value = (
+        f'raw/reddit/{subreddit}/2026-04-15/h-{last_checkpoint}-t-t3_tail-tm-123.json'
+    )
 
     mock_data = [
         {'data': {'children': [{'data': {'name': 't3_new_head'}}]}},
@@ -96,10 +102,9 @@ def test_ingest_subreddit_no_data(ingestor, mock_extractor, mock_storage):
 
 
 def test_run_orchestration(ingestor):
-    """Should call ingest_subreddit for each subreddit in the list."""
+    """Should call ingest_subreddit for each subreddit configured at init."""
     with patch.object(ingestor, 'ingest_subreddit') as mock_ingest:
-        subreddits = ['Bitcoin', 'Ethereum']
-        ingestor.run(subreddits)
+        ingestor.run()
 
         assert mock_ingest.call_count == 2
         mock_ingest.assert_any_call('Bitcoin')

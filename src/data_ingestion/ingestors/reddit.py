@@ -1,22 +1,24 @@
 from data_ingestion.load.s3_key import RedditS3Key
 from data_ingestion.load.aws_s3 import AWSServiceS3
-from data_ingestion.extract.reddit import RedditExtractor
+from data_ingestion.extract.base import BaseExtractor
+from data_ingestion.extract.reddit import RedditAuth, RedditExtractor
+from data_ingestion.config.env_settings import RedditConfig
+from data_ingestion.ingestors.base import BaseIngestor
 from data_ingestion.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-class RedditIngestor:
-    def __init__(self, extractor: RedditExtractor, storage: AWSServiceS3):
-        """
-        Initializes the RedditIngestor.
-
-        Args:
-            extractor: An instance of RedditExtractor.
-            storage: An instance of AWSServiceS3.
-        """
+class RedditIngestor(BaseIngestor):
+    def __init__(
+        self,
+        extractor: BaseExtractor,
+        storage: AWSServiceS3,
+        subreddits: list[str],
+    ):
         self.extractor = extractor
         self.storage = storage
+        self.subreddits = subreddits
 
     def _get_last_checkpoint(self, subreddit: str) -> str | None:
         """
@@ -71,17 +73,40 @@ class RedditIngestor:
             logger.error(f'Failed to extract head/tail for {subreddit}: {e}')
             return
 
-        s3_key = RedditS3Key.build(subreddit=subreddit, head=head, tail=tail).to_s3_key()
+        s3_key = RedditS3Key.build(
+            subreddit=subreddit, head=head, tail=tail
+        ).to_s3_key()
 
         self.storage.upload(s3_key=s3_key, data=result)
         logger.info(f'Successfully ingested {subreddit} -> {s3_key}')
 
-    def run(self, subreddits: list[str]) -> None:
-        """
-        Runs the ingestion process for a list of subreddits.
-        """
-        for subreddit in subreddits:
+    def run(self) -> None:
+        for subreddit in self.subreddits:
             try:
                 self.ingest_subreddit(subreddit)
             except Exception as e:
                 logger.error(f'Error during ingestion of {subreddit}: {e}')
+
+
+def build_reddit_ingestor(storage: AWSServiceS3) -> RedditIngestor:
+    config = RedditConfig()
+    token = RedditAuth(
+        client_id=config.client_id,
+        client_secret=config.client_secret,
+        username=config.username,
+        password=config.password_account,
+        user_agent=config.user_agent,
+    ).access_token()
+    extractor = RedditExtractor(token=token, user_agent=config.user_agent)
+    subreddits = [
+        'CryptoCurrency',
+        'Bitcoin',
+        'Ethereum',
+        'ethtrader',
+        'dogecoin',
+        'CryptoMoonshots',
+        'btc',
+        'BitcoinBeginners',
+        'CryptoTechnology',
+    ]
+    return RedditIngestor(extractor=extractor, storage=storage, subreddits=subreddits)

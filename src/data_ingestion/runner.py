@@ -1,8 +1,8 @@
 from data_ingestion.utils.logger import get_logger
-from data_ingestion.config.env_settings import AWSConfig, RedditConfig
-from data_ingestion.extract.reddit import RedditExtractor, RedditAuth
+from data_ingestion.config.env_settings import AWSConfig
 from data_ingestion.load.aws_s3 import AWSClientS3, AWSServiceS3
-from data_ingestion.ingestors.reddit import RedditIngestor
+from data_ingestion.ingestors.base import BaseIngestor
+from data_ingestion.ingestors.reddit import build_reddit_ingestor
 from time import perf_counter as pc
 
 
@@ -14,57 +14,27 @@ def runner():
 
     logger.info('CryptoCore ingestion data_ingestion start')
 
-    # 1. Config
-    reddit_config = RedditConfig()
+    # 1. Storage (compartilhado entre todas as fontes)
     aws_config = AWSConfig()
-
-    # 2. Auth
-    token: str = RedditAuth(
-        client_id=reddit_config.client_id,
-        client_secret=reddit_config.client_secret,
-        username=reddit_config.username,
-        password=reddit_config.password_account,
-        user_agent=reddit_config.user_agent,
-    ).access_token()
-
-    # 3. Extractor
-    red_extractor: RedditExtractor = RedditExtractor(
-        token=token,
-        user_agent=reddit_config.user_agent,
-    )
-
-    # 4. Storage
-    aws_client: AWSClientS3 = AWSClientS3(
+    aws_client = AWSClientS3(
         aws_access_key_id=aws_config.access_key_id,
         aws_secret_access_key=aws_config.secret_access_key,
         region_name=aws_config.default_region,
     )
-
-    aws_service: AWSServiceS3 = AWSServiceS3(
+    aws_service = AWSServiceS3(
         client=aws_client.client,
         bucket_name=aws_config.bucket_name,
     )
 
-    # 5. Ingestor
-    red_ingestor: RedditIngestor = RedditIngestor(
-        extractor=red_extractor,
-        storage=aws_service,
-    )
-
-    # 6. Run
-    subreddits: list[str] = [
-        'CryptoCurrency',
-        'Bitcoin',
-        'Ethereum',
-        'ethtrader',
-        'dogecoin',
-        'CryptoMoonshots',
-        'btc',
-        'BitcoinBeginners',
-        'CryptoTechnology',
+    # 2. Ingestors
+    ingestors: list[BaseIngestor] = [
+        build_reddit_ingestor(aws_service),
+        # build_binance_ingestor(aws_service),
     ]
 
-    red_ingestor.run(subreddits)
+    # 3. Run
+    for ingestor in ingestors:
+        ingestor.run()
 
     clock['end'] = pc()
 

@@ -2,6 +2,7 @@ import requests
 import time
 from requests.auth import HTTPBasicAuth
 from datetime import timedelta
+from data_ingestion.extract.base import BaseExtractor
 from data_ingestion.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -77,7 +78,7 @@ class RedditAuth:
         return token
 
 
-class RedditExtractor:
+class RedditExtractor(BaseExtractor):
     """
     A class to extract data raw (the format is json) from Subreddit using the requests library.
 
@@ -182,11 +183,10 @@ class RedditExtractor:
                 )
 
                 result.insert(0, response)
-            
+
             time.sleep(1)
 
         return result
 
     def fetch_comments(self, subreddit) -> None:
-        comments_endpoint = '#'
         pass
