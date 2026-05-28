@@ -202,6 +202,15 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Claude
+#  CLAUDE.md contains project context for the Claude AI assistant.
+#  refer to https://docs.anthropic.com/en/docs/claude-code/memory
+CLAUDE.md
+
+# Gemini
+#  GEMINI.md contains project context for the Gemini AI assistant.
+GEMINI.md
+
 # Marimo
 marimo/_static/
 marimo/_lsp/
