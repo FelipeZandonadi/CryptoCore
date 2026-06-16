@@ -12,7 +12,7 @@ logger = get_logger(__name__)
 def runner():
     clock = {'init': pc(), 'end': 0}
 
-    logger.info('CryptoCore ingestion data_ingestion start')
+    logger.info('CryptoCore ingestion start.')
 
     # 1. Storage (compartilhado entre todas as fontes)
     aws_config = AWSConfig()
