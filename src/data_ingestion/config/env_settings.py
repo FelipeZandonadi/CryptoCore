@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class RedditConfig(BaseSettings):
     client_id: str
     client_secret: str

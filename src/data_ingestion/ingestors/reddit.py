@@ -23,9 +23,21 @@ class RedditIngestor(BaseIngestor):
     def _get_last_checkpoint(self, subreddit: str) -> str | None:
         """
         Retrieves the last processed 'head' fullname from the latest S3 object key.
+
+        Drills down the Hive-style date partitions (year -> month -> day),
+        always taking the greatest partition at each level, then picks the
+        newest object within that day. This scans one day's worth of keys
+        instead of the subreddit's entire history.
         """
-        prefix = f'raw/reddit/{subreddit}/'
-        latest_key = self.storage.latest_key(prefix=prefix)
+        prefix = RedditS3Key.subreddit_prefix(subreddit)
+        for _partition in RedditS3Key.DATE_PARTITIONS:
+            prefix = self.storage.latest_common_prefix(prefix)
+            if not prefix:
+                return None
+
+        latest_key = self.storage.latest_key(
+            prefix=prefix, sort_key=RedditS3Key.sort_key
+        )
 
         if not latest_key:
             return None
