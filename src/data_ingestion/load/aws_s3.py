@@ -1,5 +1,4 @@
 import json
-import re
 from typing import Callable
 
 import boto3
@@ -66,33 +65,57 @@ class AWSServiceS3:
             logger.error(f'Failed to upload data to S3: {e}')
             raise Exception(f'Failed to upload data to S3: {e}')
 
-    _TM_PATTERN = re.compile(r'-tm-([\d.]+)\.json$')
+    def latest_common_prefix(self, prefix: str) -> str | None:
+        """
+        Return the lexicographically-greatest immediate sub-prefix under
+        `prefix`, using a delimiter so S3 returns only the "directory" entries
+        (CommonPrefixes) without listing the objects inside them.
 
-    def _tm_sort_key(self, s3_object: dict) -> tuple:
-        match = self._TM_PATTERN.search(s3_object['Key'])
-        if match:
-            return (float(match.group(1)), s3_object['Key'])
-        return (s3_object['LastModified'].timestamp(), s3_object['Key'])
+        For Hive-style, date-partitioned layouts this lets callers drill down
+        to the most recent partition cheaply instead of scanning all history.
+        """
+        try:
+            paginator = self.client.get_paginator('list_objects_v2')
+            pages = paginator.paginate(
+                Bucket=self.bucket_name, Prefix=prefix, Delimiter='/'
+            )
+
+            latest = None
+            for page in pages:
+                for common_prefix in page.get('CommonPrefixes', []):
+                    candidate = common_prefix['Prefix']
+                    if latest is None or candidate > latest:
+                        latest = candidate
+
+            return latest
+
+        except Exception as e:
+            logger.error(f'Failed to list prefixes in S3: {e}')
+            raise Exception(f'Failed to list prefixes in S3: {e}')
 
     def latest_key(
         self,
         prefix: str,
-        sort_key: Callable[[dict], tuple] | None = None,
+        sort_key: Callable[[str], tuple],
     ) -> str | None:
+        """
+        Return the greatest object key under `prefix` according to `sort_key`.
+
+        `sort_key` is a caller-supplied ranking function over the key string,
+        so this method stays agnostic of any source-specific key format.
+        """
         try:
             paginator = self.client.get_paginator('list_objects_v2')
             pages = paginator.paginate(Bucket=self.bucket_name, Prefix=prefix)
-            rank = sort_key or self._tm_sort_key
 
-            latest_object = None
+            latest_key = None
             for page in pages:
-                contents = page.get('Contents', [])
-                if contents:
-                    page_latest = max(contents, key=rank)
-                    if latest_object is None or rank(page_latest) > rank(latest_object):
-                        latest_object = page_latest
+                for s3_object in page.get('Contents', []):
+                    key = s3_object['Key']
+                    if latest_key is None or sort_key(key) > sort_key(latest_key):
+                        latest_key = key
 
-            return latest_object['Key'] if latest_object else None
+            return latest_key
 
         except Exception as e:
             logger.error(f'Failed to list objects in S3: {e}')

@@ -99,12 +99,18 @@ def test_aws_service_s3_upload_failure(aws_s3_service, mocker):
     assert 'Failed to upload data to S3: Upload failed' in str(exc_info.value)
 
 
+# A simple lexicographic ranking over the key string, enough to exercise the
+# generic service without coupling the test to any source-specific format.
+def _lexicographic(key: str) -> tuple:
+    return (key,)
+
+
 def test_aws_service_s3_latest_key_success_1(aws_s3_service):
     service = aws_s3_service
     s3_key = 'go_to_mars/2037-01-01/mars.json'
 
     service.client.put_object(Bucket=service.bucket_name, Key=s3_key, Body='test')
-    latest_key = service.latest_key('go_to_mars/')
+    latest_key = service.latest_key('go_to_mars/', sort_key=_lexicographic)
 
     assert latest_key == s3_key
 
@@ -116,7 +122,7 @@ def test_aws_service_s3_latest_key_success_2(aws_s3_service):
 
     service.client.put_object(Bucket=service.bucket_name, Key=s3_key1, Body='test1')
     service.client.put_object(Bucket=service.bucket_name, Key=s3_key2, Body='test2')
-    latest_key = service.latest_key('go_to_mars/')
+    latest_key = service.latest_key('go_to_mars/', sort_key=_lexicographic)
 
     assert latest_key == s3_key2
 
@@ -124,24 +130,26 @@ def test_aws_service_s3_latest_key_success_2(aws_s3_service):
 def test_aws_service_s3_latest_key_empty_bucket_returns_none(aws_s3_service):
     service = aws_s3_service
 
-    latest_key = service.latest_key('go_to_mars/')
+    latest_key = service.latest_key('go_to_mars/', sort_key=_lexicographic)
 
     assert latest_key is None
 
 
-def test_aws_service_s3_latest_key_uses_tm_timestamp_not_last_modified(aws_s3_service):
-    """latest_key should rank by tm- in the filename, ignoring S3 LastModified order."""
+def test_aws_service_s3_latest_key_uses_injected_sort_key(aws_s3_service):
+    """latest_key must rank by the caller-supplied sort_key, not by key order."""
     service = aws_s3_service
-    # older tm- uploaded last (would win by LastModified, should lose by tm-)
-    key_older = 'raw/reddit/Bitcoin/2026-05-01/h-t3_a-t-t3_b-tm-1000.0.json'
-    key_newer = 'raw/reddit/Bitcoin/2026-05-01/h-t3_c-t-t3_d-tm-2000.0.json'
+    key_a = 'go_to_mars/a.json'
+    key_z = 'go_to_mars/z.json'
 
-    service.client.put_object(Bucket=service.bucket_name, Key=key_newer, Body='x')
-    service.client.put_object(Bucket=service.bucket_name, Key=key_older, Body='x')
+    service.client.put_object(Bucket=service.bucket_name, Key=key_a, Body='x')
+    service.client.put_object(Bucket=service.bucket_name, Key=key_z, Body='x')
 
-    latest_key = service.latest_key('raw/reddit/Bitcoin/')
+    # Inverted ranking: 'a' should now be considered the greatest.
+    latest_key = service.latest_key(
+        'go_to_mars/', sort_key=lambda k: (-ord(k.split('/')[-1][0]),)
+    )
 
-    assert latest_key == key_newer
+    assert latest_key == key_a
 
 
 def test_aws_service_s3_latest_key_failure(aws_s3_service, mocker):
@@ -149,11 +157,33 @@ def test_aws_service_s3_latest_key_failure(aws_s3_service, mocker):
 
     mocker.patch.object(
         service.client,
-        'list_objects_v2',
+        'get_paginator',
         side_effect=Exception('Failed to list objects'),
     )
 
     with pytest.raises(Exception) as exc_info:
-        service.latest_key('go_to_mars/')
+        service.latest_key('go_to_mars/', sort_key=_lexicographic)
 
     assert 'Failed to list objects in S3: Failed to list objects' in str(exc_info.value)
+
+
+# latest_common_prefix tests
+
+
+def test_latest_common_prefix_returns_greatest(aws_s3_service):
+    service = aws_s3_service
+    base = 'raw/reddit/subreddit=Bitcoin/'
+    service.client.put_object(
+        Bucket=service.bucket_name, Key=f'{base}year=2025/x.json', Body='x'
+    )
+    service.client.put_object(
+        Bucket=service.bucket_name, Key=f'{base}year=2026/x.json', Body='x'
+    )
+
+    assert service.latest_common_prefix(base) == f'{base}year=2026/'
+
+
+def test_latest_common_prefix_empty_returns_none(aws_s3_service):
+    service = aws_s3_service
+
+    assert service.latest_common_prefix('raw/reddit/subreddit=Nope/') is None
