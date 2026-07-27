@@ -1,6 +1,25 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from data_ingestion.ingestors.reddit import RedditIngestor
+from data_ingestion.load.s3_key import RedditS3Key
+
+
+def _hive_key(subreddit='Bitcoin', head='t3_abc123', tail='t3_xyz789'):
+    return (
+        f'raw/reddit/subreddit={subreddit}/year=2026/month=04/day=15/'
+        f'h-{head}-t-{tail}-tm-123456789.0.json'
+    )
+
+
+def _drill_to_day(mock_storage, subreddit='Bitcoin'):
+    """Make latest_common_prefix walk year -> month -> day, returning the day prefix."""
+    day_prefix = f'raw/reddit/subreddit={subreddit}/year=2026/month=04/day=15/'
+    mock_storage.latest_common_prefix.side_effect = [
+        f'raw/reddit/subreddit={subreddit}/year=2026/',
+        f'raw/reddit/subreddit={subreddit}/year=2026/month=04/',
+        day_prefix,
+    ]
+    return day_prefix
 
 
 @pytest.fixture
@@ -28,19 +47,32 @@ def ingestor(mock_extractor, mock_storage):
 
 
 def test_get_last_checkpoint_success(ingestor, mock_storage):
-    """Should return the head fullname from the latest S3 key."""
-    mock_storage.latest_key.return_value = (
-        'raw/reddit/Bitcoin/2026-04-15/h-t3_abc123-t-t3_xyz789-tm-123456789.json'
-    )
+    """Should drill the date partitions and return the head from the latest key."""
+    day_prefix = _drill_to_day(mock_storage)
+    mock_storage.latest_key.return_value = _hive_key(head='t3_abc123')
 
     checkpoint = ingestor._get_last_checkpoint('Bitcoin')
 
     assert checkpoint == 't3_abc123'
-    mock_storage.latest_key.assert_called_once_with(prefix='raw/reddit/Bitcoin/')
+    mock_storage.latest_key.assert_called_once_with(
+        prefix=day_prefix, sort_key=RedditS3Key.sort_key
+    )
+    assert mock_storage.latest_common_prefix.call_count == 3
 
 
-def test_get_last_checkpoint_none(ingestor, mock_storage):
-    """Should return None if no latest key is found in S3."""
+def test_get_last_checkpoint_none_when_no_partitions(ingestor, mock_storage):
+    """Should return None (and not call latest_key) if no partition exists yet."""
+    mock_storage.latest_common_prefix.return_value = None
+
+    checkpoint = ingestor._get_last_checkpoint('Bitcoin')
+
+    assert checkpoint is None
+    mock_storage.latest_key.assert_not_called()
+
+
+def test_get_last_checkpoint_none_when_day_empty(ingestor, mock_storage):
+    """Should return None if the latest day partition has no objects."""
+    _drill_to_day(mock_storage)
     mock_storage.latest_key.return_value = None
 
     checkpoint = ingestor._get_last_checkpoint('Bitcoin')
@@ -50,7 +82,8 @@ def test_get_last_checkpoint_none(ingestor, mock_storage):
 
 def test_get_last_checkpoint_no_match(ingestor, mock_storage):
     """Should return None if the latest key doesn't match the expected pattern."""
-    mock_storage.latest_key.return_value = 'raw/reddit/Bitcoin/some-weird-file.json'
+    _drill_to_day(mock_storage)
+    mock_storage.latest_key.return_value = 'raw/reddit/subreddit=Bitcoin/weird.json'
 
     checkpoint = ingestor._get_last_checkpoint('Bitcoin')
 
@@ -62,8 +95,9 @@ def test_ingest_subreddit_success(ingestor, mock_extractor, mock_storage):
     # Setup
     subreddit = 'Bitcoin'
     last_checkpoint = 't3_old'
-    mock_storage.latest_key.return_value = (
-        f'raw/reddit/{subreddit}/2026-04-15/h-{last_checkpoint}-t-t3_tail-tm-123.json'
+    _drill_to_day(mock_storage, subreddit)
+    mock_storage.latest_key.return_value = _hive_key(
+        subreddit=subreddit, head=last_checkpoint, tail='t3_tail'
     )
 
     mock_data = [
@@ -86,7 +120,7 @@ def test_ingest_subreddit_success(ingestor, mock_extractor, mock_storage):
     s3_key = kwargs.get('s3_key') or args[0]
     uploaded_data = kwargs.get('data') or args[1]
 
-    assert f'raw/reddit/{subreddit}/' in s3_key
+    assert f'raw/reddit/subreddit={subreddit}/' in s3_key
     assert 'h-t3_new_head-t-t3_new_tail' in s3_key
     assert uploaded_data == mock_data
 
